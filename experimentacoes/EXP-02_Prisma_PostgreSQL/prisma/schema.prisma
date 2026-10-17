@@ -1,0 +1,538 @@
+// MedFlow - EXP-02: modelo lógico portado de MySQL para PostgreSQL (Prisma)
+// Correções aplicadas em relação ao sql.txt:
+//  - medico: UNIQUE(crm, uf_crm) em vez de dois UNIQUE separados
+//  - FKs com onDelete: Restrict (nenhum CASCADE), coerente com soft delete e RN-016
+//  - 15 tipos enumerados (o texto da Seção 18.1 dizia 13)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ======================== ENUMS (15) ========================
+
+enum TipoUsuario {
+  PACIENTE
+  MEDICO
+  ADMIN
+
+  @@map("tipo_usuario")
+}
+
+enum Sensibilidade {
+  BAIXA
+  MEDIA
+  ALTA
+  CRITICA
+
+  @@map("sensibilidade")
+}
+
+enum TipoTelefone {
+  CELULAR
+  RESIDENCIAL
+  TRABALHO
+
+  @@map("tipo_telefone")
+}
+
+enum TipoEndereco {
+  CASA
+  TRABALHO
+  OUTRO
+
+  @@map("tipo_endereco")
+}
+
+enum TipoRelacao {
+  PAI
+  MAE
+  TUTOR
+  OUTRO
+
+  @@map("tipo_relacao")
+}
+
+enum MetodoConcessao {
+  MANUAL
+  SISTEMA
+  QR_CODE
+
+  @@map("metodo_concessao")
+}
+
+enum StatusPermissao {
+  ATIVO
+  REVOGADO
+  EXPIRADO
+
+  @@map("status_permissao")
+}
+
+enum NivelRisco {
+  BAIXO
+  MEDIO
+  ALTO
+
+  @@map("nivel_risco")
+}
+
+enum SeveridadeComorbidade {
+  LEVE
+  MODERADA
+  GRAVE
+
+  @@map("severidade_comorbidade")
+}
+
+enum SeveridadeReacao {
+  LEVE
+  MODERADA
+  GRAVE
+  ANAFLAXIA
+
+  @@map("severidade_reacao")
+}
+
+enum StatusConsulta {
+  AGENDADA
+  EM_ANDAMENTO
+  FINALIZADA
+  CANCELADA
+
+  @@map("status_consulta")
+}
+
+enum TipoConsulta {
+  PRESENCIAL
+  TELEMEDICINA
+  RETORNO
+
+  @@map("tipo_consulta")
+}
+
+enum TipoEvento {
+  CRIACAO
+  ATUALIZACAO
+  EXCLUSAO
+  VISUALIZACAO
+
+  @@map("tipo_evento")
+}
+
+enum Operacao {
+  INSERT
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+
+  @@map("operacao")
+}
+
+enum TipoInferencia {
+  DIAGNOSTICO
+  RESUMO_PRONTUARIO
+  ANALISE_EXAME
+
+  @@map("tipo_inferencia")
+}
+
+// ======================== 1. TABELAS BASE ========================
+
+model usuario {
+  id_usuario       Int         @id @default(autoincrement())
+  primeiro_nome    String      @db.VarChar(100)
+  sobrenome        String      @db.VarChar(100)
+  cpf              String      @unique @db.Char(11)
+  email            String      @unique @db.VarChar(255)
+  senha_hash       String      @db.VarChar(255)
+  tipo_usuario     TipoUsuario
+  data_criacao     DateTime    @default(now())
+  data_atualizacao DateTime    @default(now()) @updatedAt
+  data_exclusao    DateTime?
+  status_ativo     Boolean     @default(true)
+  ultimo_login     DateTime?
+
+  paciente               paciente?
+  medico                 medico?
+  telefones              telefone[]
+  enderecos              endereco[]
+  termos_aceite          termo_aceite[]
+  alergias_identificadas paciente_possui_alergia[]
+  historicos_alterados   historico[]
+  logs_auditoria         log_auditoria[]
+  inferencias_solicitadas log_inferencia_ia[]
+}
+
+model especialidade {
+  id_especialidade   Int     @id @default(autoincrement())
+  nome_especialidade String  @unique @db.VarChar(100)
+  codigo_cbo         String? @db.VarChar(20)
+  descricao          String?
+
+  medicos medico_especialidade[]
+}
+
+model comorbidade {
+  id_comorbidade Int     @id @default(autoincrement())
+  nome           String  @db.VarChar(100)
+  codigo_cid10   String? @unique @db.VarChar(10)
+  categoria      String? @db.VarChar(100)
+
+  pacientes paciente_comorbidade[]
+}
+
+model vicio {
+  id_vicio           Int     @id @default(autoincrement())
+  nome               String  @unique @db.VarChar(100)
+  categoria          String? @db.VarChar(100)
+  relevancia_clinica String? @db.VarChar(50)
+
+  pacientes paciente_vicio[]
+}
+
+model substancia {
+  id_substancia Int     @id @default(autoincrement())
+  nome          String  @unique @db.VarChar(150)
+  classe_quimica String? @db.VarChar(100)
+  codigo_dcb    String? @unique @db.VarChar(20)
+
+  alergias     alergia[]
+  medicamentos medicamento_substancia[]
+}
+
+model medicamento {
+  id_medicamento     Int     @id @default(autoincrement())
+  nome_comercial     String  @db.VarChar(150)
+  principio_ativo    String  @db.VarChar(150)
+  classe_terapeutica String? @db.VarChar(100)
+  codigo_anvisa      String? @unique @db.VarChar(20)
+  via_administracao  String? @db.VarChar(50)
+  forma_farmaceutica String? @db.VarChar(50)
+
+  substancias medicamento_substancia[]
+  usos        paciente_utiliza_medicamento[]
+}
+
+model categoria_dado {
+  id_categoria  Int           @id @default(autoincrement())
+  nome          String        @unique @db.VarChar(100)
+  descricao     String?
+  sensibilidade Sensibilidade
+
+  permissoes permissao_categoria[]
+}
+
+// ======================== 2. DERIVADAS DE USUÁRIO ========================
+
+model paciente {
+  id_paciente      Int       @id
+  data_nascimento  DateTime  @db.Date
+  sexo             String    @db.VarChar(20)
+  tipo_sanguineo   String?   @db.VarChar(5)
+  data_criacao     DateTime  @default(now())
+  data_atualizacao DateTime  @default(now()) @updatedAt
+  data_exclusao    DateTime?
+  status_ativo     Boolean   @default(true)
+
+  usuario usuario @relation(fields: [id_paciente], references: [id_usuario], onDelete: Restrict)
+
+  comorbidades             paciente_comorbidade[]
+  vicios                   paciente_vicio[]
+  alergias                 paciente_possui_alergia[]
+  medicamentos             paciente_utiliza_medicamento[]
+  consultas                consulta[]
+  historicos               historico[]
+  permissoes               permissao_acesso[]
+  tutelas_como_responsavel paciente_tutela[]              @relation("responsavel")
+  tutelas_como_tutelado    paciente_tutela[]              @relation("tutelado")
+  inferencias_ia           log_inferencia_ia[]
+}
+
+model medico {
+  id_medico        Int       @id
+  crm              String    @db.VarChar(20)
+  uf_crm           String    @db.Char(2)
+  data_criacao     DateTime  @default(now())
+  data_atualizacao DateTime  @default(now()) @updatedAt
+  data_exclusao    DateTime?
+  status_ativo     Boolean   @default(true)
+
+  usuario usuario @relation(fields: [id_medico], references: [id_usuario], onDelete: Restrict)
+
+  especialidades medico_especialidade[]
+  consultas      consulta[]
+  permissoes     permissao_acesso[]
+  prescricoes    paciente_utiliza_medicamento[]
+
+  // Correção: o CRM é único por UF, não globalmente
+  @@unique([crm, uf_crm])
+}
+
+model telefone {
+  id_telefone        Int          @id @default(autoincrement())
+  id_usuario         Int
+  numero             String       @db.VarChar(20)
+  tipo_telefone      TipoTelefone
+  telefone_principal Boolean      @default(false)
+  data_criacao       DateTime     @default(now())
+  data_atualizacao   DateTime     @default(now()) @updatedAt
+
+  usuario usuario @relation(fields: [id_usuario], references: [id_usuario], onDelete: Restrict)
+}
+
+model endereco {
+  id_endereco        Int          @id @default(autoincrement())
+  id_usuario         Int
+  cep                String       @db.Char(8)
+  logradouro         String       @db.VarChar(150)
+  numero             String       @db.VarChar(20)
+  complemento        String?      @db.VarChar(100)
+  cidade             String       @db.VarChar(100)
+  estado             String       @db.Char(2)
+  tipo_endereco      TipoEndereco
+  endereco_principal Boolean      @default(false)
+  data_criacao       DateTime     @default(now())
+  data_atualizacao   DateTime     @default(now()) @updatedAt
+
+  usuario usuario @relation(fields: [id_usuario], references: [id_usuario], onDelete: Restrict)
+}
+
+model termo_aceite {
+  id_aceite    Int      @id @default(autoincrement())
+  id_usuario   Int
+  versao_termo String   @db.VarChar(50)
+  texto_termo  String
+  data_aceite  DateTime @default(now())
+  ip_aceite    String   @db.VarChar(45)
+
+  usuario usuario @relation(fields: [id_usuario], references: [id_usuario], onDelete: Restrict)
+}
+
+// ======================== 3. RELACIONAMENTOS CLÍNICOS E PERMISSÕES ========================
+
+model medico_especialidade {
+  id_medico        Int
+  id_especialidade Int
+  data_obtencao    DateTime? @db.Date
+
+  medico        medico        @relation(fields: [id_medico], references: [id_medico], onDelete: Restrict)
+  especialidade especialidade @relation(fields: [id_especialidade], references: [id_especialidade], onDelete: Restrict)
+
+  @@id([id_medico, id_especialidade])
+}
+
+model paciente_tutela {
+  id_paciente_responsavel Int
+  id_paciente_tutelado    Int
+  tipo_relacao            TipoRelacao
+  data_inicio             DateTime    @db.Date
+  data_fim                DateTime?   @db.Date
+
+  responsavel paciente @relation("responsavel", fields: [id_paciente_responsavel], references: [id_paciente], onDelete: Restrict)
+  tutelado    paciente @relation("tutelado", fields: [id_paciente_tutelado], references: [id_paciente], onDelete: Restrict)
+
+  @@id([id_paciente_responsavel, id_paciente_tutelado, tipo_relacao, data_inicio])
+}
+
+model permissao_acesso {
+  id_permissao     Int             @id @default(autoincrement())
+  id_paciente      Int
+  id_medico        Int
+  data_concessao   DateTime        @default(now())
+  data_revogacao   DateTime?
+  metodo_concessao MetodoConcessao
+  status           StatusPermissao
+  token_hash       String?         @db.VarChar(255)
+
+  paciente paciente @relation(fields: [id_paciente], references: [id_paciente], onDelete: Restrict)
+  medico   medico   @relation(fields: [id_medico], references: [id_medico], onDelete: Restrict)
+
+  categorias permissao_categoria[]
+}
+
+model permissao_categoria {
+  id_permissao Int
+  id_categoria Int
+
+  permissao permissao_acesso @relation(fields: [id_permissao], references: [id_permissao], onDelete: Restrict)
+  categoria categoria_dado   @relation(fields: [id_categoria], references: [id_categoria], onDelete: Restrict)
+
+  @@id([id_permissao, id_categoria])
+}
+
+model medicamento_substancia {
+  id_medicamento Int
+  id_substancia  Int
+  concentracao   String? @db.VarChar(50)
+
+  medicamento medicamento @relation(fields: [id_medicamento], references: [id_medicamento], onDelete: Restrict)
+  substancia  substancia  @relation(fields: [id_substancia], references: [id_substancia], onDelete: Restrict)
+
+  @@id([id_medicamento, id_substancia])
+}
+
+model alergia {
+  id_alergia    Int        @id @default(autoincrement())
+  id_substancia Int
+  nome          String     @db.VarChar(100)
+  descricao     String?
+  nivel_risco   NivelRisco
+
+  substancia substancia @relation(fields: [id_substancia], references: [id_substancia], onDelete: Restrict)
+
+  pacientes paciente_possui_alergia[]
+}
+
+model paciente_comorbidade {
+  id_paciente      Int
+  id_comorbidade   Int
+  data_diagnostico DateTime?             @db.Date
+  severidade       SeveridadeComorbidade
+  status           String                @db.VarChar(50)
+  data_criacao     DateTime              @default(now())
+  data_atualizacao DateTime              @default(now()) @updatedAt
+  data_exclusao    DateTime?
+
+  paciente    paciente    @relation(fields: [id_paciente], references: [id_paciente], onDelete: Restrict)
+  comorbidade comorbidade @relation(fields: [id_comorbidade], references: [id_comorbidade], onDelete: Restrict)
+
+  @@id([id_paciente, id_comorbidade])
+}
+
+model paciente_vicio {
+  id_paciente      Int
+  id_vicio         Int
+  data_inicio      DateTime? @db.Date
+  frequencia       String?   @db.VarChar(50)
+  status           String    @db.VarChar(50)
+  data_criacao     DateTime  @default(now())
+  data_atualizacao DateTime  @default(now()) @updatedAt
+  data_exclusao    DateTime?
+
+  paciente paciente @relation(fields: [id_paciente], references: [id_paciente], onDelete: Restrict)
+  vicio    vicio    @relation(fields: [id_vicio], references: [id_vicio], onDelete: Restrict)
+
+  @@id([id_paciente, id_vicio])
+}
+
+model paciente_possui_alergia {
+  id_paciente                 Int
+  id_alergia                  Int
+  data_diagnostico            DateTime?        @db.Date
+  severidade_reacao           SeveridadeReacao
+  observacao_clinica          String?
+  identificado_por_id_usuario Int?
+  data_criacao                DateTime         @default(now())
+  data_atualizacao            DateTime         @default(now()) @updatedAt
+  data_exclusao               DateTime?
+
+  paciente        paciente @relation(fields: [id_paciente], references: [id_paciente], onDelete: Restrict)
+  alergia         alergia  @relation(fields: [id_alergia], references: [id_alergia], onDelete: Restrict)
+  identificado_por usuario? @relation(fields: [identificado_por_id_usuario], references: [id_usuario], onDelete: Restrict)
+
+  @@id([id_paciente, id_alergia])
+}
+
+model paciente_utiliza_medicamento {
+  id_paciente_utiliza     Int       @id @default(autoincrement())
+  id_paciente             Int
+  id_medicamento          Int
+  dosagem                 String    @db.VarChar(50)
+  frequencia_uso          String    @db.VarChar(50)
+  via_administracao       String?   @db.VarChar(50)
+  data_inicio_uso         DateTime  @db.Date
+  data_fim_uso            DateTime? @db.Date
+  prescrito_por_id_medico Int?
+  motivo_prescricao       String?
+  status                  String    @db.VarChar(50)
+  client_operation_id     String?   @unique @db.VarChar(100)
+  data_criacao            DateTime  @default(now())
+  data_atualizacao        DateTime  @default(now()) @updatedAt
+  data_exclusao           DateTime?
+
+  paciente    paciente    @relation(fields: [id_paciente], references: [id_paciente], onDelete: Restrict)
+  medicamento medicamento @relation(fields: [id_medicamento], references: [id_medicamento], onDelete: Restrict)
+  prescritor  medico?     @relation(fields: [prescrito_por_id_medico], references: [id_medico], onDelete: Restrict)
+}
+
+// ======================== 4. CONSULTAS, HISTÓRICO E LOGS ========================
+
+model consulta {
+  id_consulta      Int            @id @default(autoincrement())
+  id_paciente      Int
+  id_medico        Int
+  data_hora_inicio DateTime
+  data_hora_fim    DateTime?
+  motivo_consulta  String
+  diagnostico      String?
+  observacoes      String?
+  status           StatusConsulta
+  tipo_consulta    TipoConsulta
+  data_criacao     DateTime       @default(now())
+  data_atualizacao DateTime       @default(now()) @updatedAt
+  data_exclusao    DateTime?
+  status_ativo     Boolean        @default(true)
+
+  paciente paciente @relation(fields: [id_paciente], references: [id_paciente], onDelete: Restrict)
+  medico   medico   @relation(fields: [id_medico], references: [id_medico], onDelete: Restrict)
+
+  historicos historico[]
+}
+
+model historico {
+  id_historico            Int        @id @default(autoincrement())
+  id_paciente             Int
+  id_consulta             Int?
+  tipo_evento             TipoEvento
+  descricao               String
+  instituicao_origem      String?    @db.VarChar(150)
+  data_evento             DateTime   @default(now())
+  data_registro           DateTime   @default(now())
+  alterado_por_id_usuario Int?
+  motivo_alteracao        String?
+  data_atualizacao        DateTime   @default(now()) @updatedAt
+  data_exclusao           DateTime?
+
+  paciente     paciente  @relation(fields: [id_paciente], references: [id_paciente], onDelete: Restrict)
+  consulta     consulta? @relation(fields: [id_consulta], references: [id_consulta], onDelete: Restrict)
+  alterado_por usuario?  @relation(fields: [alterado_por_id_usuario], references: [id_usuario], onDelete: Restrict)
+}
+
+model log_auditoria {
+  id_log              BigInt   @id @default(autoincrement())
+  id_usuario          Int
+  timestamp           DateTime @default(now())
+  operacao            Operacao
+  entidade_afetada    String   @db.VarChar(100)
+  id_registro_afetado String   @db.VarChar(50)
+  valor_anterior      String?
+  valor_posterior     String?
+  ip_origem           String?  @db.VarChar(45)
+  user_agent          String?  @db.VarChar(255)
+
+  usuario usuario @relation(fields: [id_usuario], references: [id_usuario], onDelete: Restrict)
+}
+
+model log_inferencia_ia {
+  id_inferencia             BigInt         @id @default(autoincrement())
+  id_paciente               Int
+  solicitado_por_id_usuario Int
+  timestamp                 DateTime       @default(now())
+  modelo_utilizado          String         @db.VarChar(100)
+  provedor                  String         @db.VarChar(50)
+  tipo_inferencia           TipoInferencia
+  input_hash                String         @db.VarChar(64)
+  output_texto              String
+  tokens_consumidos         Int
+  custo_estimado            Decimal?       @db.Decimal(10, 4)
+  tempo_resposta_ms         Int
+
+  paciente     paciente @relation(fields: [id_paciente], references: [id_paciente], onDelete: Restrict)
+  solicitante  usuario  @relation(fields: [solicitado_por_id_usuario], references: [id_usuario], onDelete: Restrict)
+}

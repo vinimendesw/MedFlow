@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: medflow-exp01-pg
+    environment:
+      POSTGRES_USER: medflow
+      POSTGRES_PASSWORD: medflow123
+      POSTGRES_DB: medflow
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata_exp01:/var/lib/postgresql/data
+
+  mongo:
+    image: mongo:7
+    container_name: medflow-exp01-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata_exp01:/data/db
+
+volumes:
+  pgdata_exp01:
+  mongodata_exp01:

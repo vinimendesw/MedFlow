@@ -1,0 +1,21 @@
+{
+  "name": "exp-02-prisma",
+  "version": "1.0.0",
+  "description": "MedFlow - EXP-02: Prisma + PostgreSQL",
+  "scripts": {
+    "db:pull": "prisma db pull",
+    "migrate": "prisma migrate dev --name init",
+    "seed": "node prisma/seed.js",
+    "conflito": "node src/rodar-conflito.js",
+    "studio": "prisma studio"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.0.0"
+  },
+  "devDependencies": {
+    "prisma": "^6.0.0"
+  }
+}

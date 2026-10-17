@@ -1,0 +1,119 @@
+[
+  {
+    "_id": "64f1a2b3c4d5e6f7a8b9c0d1",
+    "referencias_relacionais": {
+      "id_paciente_sql": 1054,
+      "id_consulta_sql": 890,
+      "id_usuario_upload_sql": 12,
+      "id_entidade_terceira_sql": null
+    },
+    "classificacao": {
+      "tipo_documento": "atestado",
+      "categoria": "clinico",
+      "tags": ["retorno"]
+    },
+    "arquivo_fisico": {
+      "nome_original": "atestado_maria.pdf",
+      "storage_url": "s3://medflow-docs/paciente_1054/atestado_uuid1.pdf",
+      "tamanho_bytes": 204857,
+      "mime_type": "application/pdf",
+      "extensao": "pdf",
+      "hash_seguranca": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85"
+    },
+    "metadados_especificos": {
+      "dias_afastamento": 3,
+      "cid": "J01.9"
+    },
+    "dados_extraidos_ia": {
+      "status_processamento": "concluido",
+      "resumo_texto": "Paciente apresenta quadro estável de sinusite aguda.",
+      "entidades_identificadas": {
+        "comorbidades_citadas": ["hipertensão"],
+        "medicamentos_citados": ["losartana"]
+      }
+    },
+    "auditoria": {
+      "data_upload": "2026-09-02T20:16:05Z",
+      "ip_origem": "192.168.1.45",
+      "dispositivo_origem": "web_browser_desktop"
+    }
+  },
+  {
+    "_id": "64f1a2b3c4d5e6f7a8b9c0d2",
+    "referencias_relacionais": {
+      "id_paciente_sql": 1054,
+      "id_consulta_sql": 890,
+      "id_usuario_upload_sql": 12,
+      "id_entidade_terceira_sql": null
+    },
+    "classificacao": {
+      "tipo_documento": "laudo_imagem",
+      "categoria": "clinico",
+      "tags": ["urgente"]
+    },
+    "arquivo_fisico": {
+      "nome_original": "raiox_torax_maria.pdf",
+      "storage_url": "s3://medflow-docs/paciente_1054/raiox_uuid2.pdf",
+      "tamanho_bytes": 2048576,
+      "mime_type": "application/pdf",
+      "extensao": "pdf",
+      "hash_seguranca": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+    },
+    "metadados_especificos": {
+      "contraste": false,
+      "regiao_anatomica": "torax"
+    },
+    "dados_extraidos_ia": {
+      "status_processamento": "concluido",
+      "resumo_texto": "Exame sem alterações significativas.",
+      "entidades_identificadas": {
+        "comorbidades_citadas": [],
+        "medicamentos_citados": []
+      }
+    },
+    "auditoria": {
+      "data_upload": "2026-09-02T20:20:00Z",
+      "ip_origem": "192.168.1.45",
+      "dispositivo_origem": "web_browser_desktop"
+    }
+  },
+  {
+    "_id": "64f1a2b3c4d5e6f7a8b9c0d3",
+    "referencias_relacionais": {
+      "id_paciente_sql": 1054,
+      "id_consulta_sql": 890,
+      "id_usuario_upload_sql": 12,
+      "id_entidade_terceira_sql": null
+    },
+    "classificacao": {
+      "tipo_documento": "receita",
+      "categoria": "clinico",
+      "tags": ["retorno", "cardio"]
+    },
+    "arquivo_fisico": {
+      "nome_original": "receita_maria.pdf",
+      "storage_url": "s3://medflow-docs/paciente_1054/receita_uuid3.pdf",
+      "tamanho_bytes": 98304,
+      "mime_type": "application/pdf",
+      "extensao": "pdf",
+      "hash_seguranca": "c0e81794384491161f1777c232bc6bd9ec8f79b8c7cbff9e75b8def2f5a3e7c0"
+    },
+    "metadados_especificos": {
+      "posologia": "Losartana 50mg, 1 comprimido ao dia, por 30 dias",
+      "medico_prescritor_crm": "12345-GO"
+    },
+    "dados_extraidos_ia": {
+      "status_processamento": "concluido",
+      "resumo_texto": "Receita de uso contínuo para hipertensão.",
+      "entidades_identificadas": {
+        "comorbidades_citadas": ["hipertensão"],
+        "medicamentos_citados": ["losartana"]
+      }
+    },
+    "auditoria": {
+      "data_upload": "2026-09-02T20:25:00Z",
+      "ip_origem": "192.168.1.45",
+      "dispositivo_origem": "web_browser_desktop"
+    }
+  }
+]

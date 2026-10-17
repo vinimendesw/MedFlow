@@ -1,0 +1,630 @@
+// =============================================================================
+// MEDFLOW - MODELO LÓGICO DO BANCO DE DADOS
+// Versão: 3.3 (com correções aplicadas)
+// Notação: DBML (importar em https://dbdiagram.io)
+// =============================================================================
+// Convenções:
+//   - Soft delete em todas as entidades operacionais (data_exclusao + status_ativo)
+//   - Timestamps padrão: data_criacao, data_atualizacao
+//   - PK surrogate (integer auto-increment) em todas as entidades fortes
+//   - Especialização Usuario -> Medico/Paciente via PK,FK compartilhado
+//   - Padrão de nomeação: snake_case, tabelas no singular
+// =============================================================================
+
+Project medflow {
+  database_type: 'PostgreSQL'
+  Note: '''
+    Modelo Lógico do MedFlow — Plataforma de Integração de Saúde.
+    Suporta os requisitos MUST do 3º período após validações qualitativas
+    com Dra. Amanda (clínica) e Dr. Yan Carneiro (jurídico).
+  '''
+}
+
+// =============================================================================
+// ENUMS - tipos controlados
+// =============================================================================
+
+Enum tipo_usuario {
+  paciente
+  medico
+  gestor
+  administrador
+}
+
+Enum tipo_telefone {
+  celular
+  residencial
+  comercial
+  recados
+}
+
+Enum tipo_endereco {
+  residencial
+  comercial
+  cobranca
+}
+
+Enum tipo_relacao_tutela {
+  pai
+  mae
+  responsavel_legal
+  cuidador
+  conjuge
+}
+
+Enum status_permissao {
+  ativa
+  revogada
+  expirada
+}
+
+Enum metodo_concessao {
+  qr_code
+  cpf_senha
+  link_temporario
+}
+
+Enum tipo_evento_historico {
+  consulta
+  exame
+  vacina
+  internacao
+  prescricao
+  procedimento
+  alergia_identificada
+  diagnostico
+}
+
+Enum tipo_consulta {
+  presencial
+  telemedicina
+  retorno
+  emergencia
+}
+
+Enum status_consulta {
+  agendada
+  em_andamento
+  realizada
+  cancelada
+  nao_compareceu
+}
+
+Enum severidade {
+  leve
+  moderada
+  grave
+  critica
+}
+
+Enum tipo_inferencia_ia {
+  traducao_laudo
+  alerta_preditivo
+  resumo_contextual
+  notificacao_empatica
+}
+
+Enum operacao_log {
+  create
+  read
+  update
+  delete_logico
+  login
+  logout
+  permissao_concedida
+  permissao_revogada
+}
+
+Enum sensibilidade_dado {
+  comum
+  sensivel
+}
+
+// =============================================================================
+// PARTE 1 — IDENTIDADE E ACESSO
+// =============================================================================
+
+Table usuario {
+  id_usuario integer [pk, increment]
+  primeiro_nome varchar(100) [not null]
+  sobrenome varchar(100) [not null]
+  cpf char(11) [not null, unique]
+  email varchar(150) [not null, unique]
+  senha_hash varchar(255) [not null]
+  tipo_usuario tipo_usuario [not null]
+  data_criacao timestamp [not null, default: `now()`]
+  data_atualizacao timestamp [not null, default: `now()`]
+  data_exclusao timestamp [null, note: 'Soft delete - LGPD/CFM']
+  status_ativo boolean [not null, default: true]
+  ultimo_login timestamp [null]
+
+  indexes {
+    cpf [unique]
+    email [unique]
+    (tipo_usuario, status_ativo)
+  }
+
+  Note: 'Entidade-âncora para autenticação. Médicos e pacientes herdam por especialização.'
+}
+
+Table telefone {
+  id_telefone integer [pk, increment]
+  id_usuario integer [not null, ref: > usuario.id_usuario]
+  numero varchar(20) [not null]
+  tipo_telefone tipo_telefone [not null, default: 'celular']
+  telefone_principal boolean [not null, default: false]
+  data_criacao timestamp [not null, default: `now()`]
+  data_atualizacao timestamp [not null, default: `now()`]
+
+  indexes {
+    id_usuario
+  }
+
+  Note: 'Restaurada como tabela própria para suportar múltiplos números (1FN).'
+}
+
+Table endereco {
+  id_endereco integer [pk, increment]
+  id_usuario integer [not null, ref: > usuario.id_usuario]
+  cep char(8) [not null]
+  logradouro varchar(150) [not null]
+  numero varchar(10) [not null]
+  complemento varchar(100) [null]
+  cidade varchar(100) [not null]
+  estado char(2) [not null]
+  tipo_endereco tipo_endereco [not null, default: 'residencial']
+  endereco_principal boolean [not null, default: false]
+  data_criacao timestamp [not null, default: `now()`]
+  data_atualizacao timestamp [not null, default: `now()`]
+
+  indexes {
+    id_usuario
+    cep
+  }
+}
+
+Table paciente {
+  id_paciente integer [pk, ref: - usuario.id_usuario, note: 'PK,FK - especialização de Usuario']
+  data_nascimento date [not null]
+  sexo varchar(20) [not null]
+  tipo_sanguineo varchar(5) [null]
+  data_criacao timestamp [not null, default: `now()`]
+  data_atualizacao timestamp [not null, default: `now()`]
+  data_exclusao timestamp [null]
+  status_ativo boolean [not null, default: true]
+
+  Note: 'Especialização de Usuário. id_paciente = id_usuario do mesmo registro.'
+}
+
+Table medico {
+  id_medico integer [pk, ref: - usuario.id_usuario, note: 'PK,FK - especialização de Usuario']
+  crm varchar(20) [not null]
+  uf_crm char(2) [not null]
+  data_criacao timestamp [not null, default: `now()`]
+  data_atualizacao timestamp [not null, default: `now()`]
+  data_exclusao timestamp [null]
+  status_ativo boolean [not null, default: true]
+
+  indexes {
+    (crm, uf_crm) [unique, name: 'uk_medico_crm_uf']
+  }
+
+  Note: 'CRM é único por UF — chave composta obrigatória.'
+}
+
+Table especialidade {
+  id_especialidade integer [pk, increment]
+  nome_especialidade varchar(100) [not null, unique]
+  codigo_cbo varchar(10) [null, note: 'Classificação Brasileira de Ocupações']
+  descricao text [null]
+}
+
+Table medico_especialidade {
+  id_medico integer [not null, ref: > medico.id_medico]
+  id_especialidade integer [not null, ref: > especialidade.id_especialidade]
+  data_obtencao date [null]
+
+  indexes {
+    (id_medico, id_especialidade) [pk]
+  }
+}
+
+Table paciente_tutela {
+  id_paciente_responsavel integer [not null, ref: > paciente.id_paciente]
+  id_paciente_tutelado integer [not null, ref: > paciente.id_paciente]
+  tipo_relacao tipo_relacao_tutela [not null]
+  data_inicio date [not null]
+  data_fim date [null, note: 'Nulo enquanto a tutela estiver ativa']
+
+  indexes {
+    (id_paciente_responsavel, id_paciente_tutelado, data_inicio) [pk]
+    id_paciente_tutelado
+  }
+
+  Note: 'Autorrelacionamento entre pacientes para suportar tutores legais (RN-008, RF-011).'
+}
+
+// =============================================================================
+// PARTE 2 — CATÁLOGOS CLÍNICOS
+// =============================================================================
+
+Table comorbidade {
+  id_comorbidade integer [pk, increment]
+  nome varchar(150) [not null]
+  codigo_cid10 varchar(10) [null, unique]
+  categoria varchar(100) [null]
+
+  indexes {
+    nome
+    codigo_cid10
+  }
+
+  Note: 'Catálogo de doenças e condições - referencia CID-10 para padronização clínica.'
+}
+
+Table vicio {
+  id_vicio integer [pk, increment]
+  nome varchar(100) [not null, unique]
+  categoria varchar(100) [null]
+  relevancia_clinica varchar(50) [null]
+}
+
+Table substancia {
+  id_substancia integer [pk, increment]
+  nome varchar(150) [not null, unique]
+  classe_quimica varchar(100) [null]
+  codigo_dcb varchar(20) [null, unique, note: 'Denominação Comum Brasileira']
+
+  Note: 'Catálogo central que conecta ALERGIA e MEDICAMENTO para alertas cruzados (RN-011).'
+}
+
+Table medicamento {
+  id_medicamento integer [pk, increment]
+  nome_comercial varchar(150) [not null]
+  principio_ativo varchar(150) [not null]
+  classe_terapeutica varchar(100) [null]
+  codigo_anvisa varchar(20) [null, unique]
+  via_administracao varchar(50) [null]
+  forma_farmaceutica varchar(50) [null]
+
+  indexes {
+    nome_comercial
+    principio_ativo
+    classe_terapeutica
+  }
+}
+
+Table medicamento_substancia {
+  id_medicamento integer [not null, ref: > medicamento.id_medicamento]
+  id_substancia integer [not null, ref: > substancia.id_substancia]
+  concentracao varchar(50) [null]
+
+  indexes {
+    (id_medicamento, id_substancia) [pk]
+  }
+
+  Note: 'N:N - um medicamento pode conter múltiplas substâncias e uma substância está em vários medicamentos.'
+}
+
+Table alergia {
+  id_alergia integer [pk, increment]
+  id_substancia integer [not null, ref: > substancia.id_substancia]
+  nome varchar(150) [not null, note: 'Nome popular da alergia, ex: Alergia à Dipirona']
+  descricao text [null]
+  nivel_risco severidade [not null]
+
+  indexes {
+    id_substancia
+  }
+
+  Note: 'Catálogo de alergias conhecidas - cada uma reage a uma substância. Cruzamento com MEDICAMENTO via SUBSTANCIA habilita alertas (RN-011).'
+}
+
+Table categoria_dado {
+  id_categoria integer [pk, increment]
+  nome varchar(100) [not null, unique]
+  descricao text [null]
+  sensibilidade sensibilidade_dado [not null]
+
+  Note: 'Catálogo de categorias de dados clínicos (alergias, exames de imagem, saúde mental, ISTs, histórico obstétrico, uso de substâncias). Habilita compartilhamento granular (mitiga risco do Dr. Yan).'
+}
+
+// =============================================================================
+// PARTE 3 — VÍNCULOS PACIENTE-CLÍNICOS (associativas com temporalidade)
+// =============================================================================
+
+Table paciente_comorbidade {
+  id_paciente integer [not null, ref: > paciente.id_paciente]
+  id_comorbidade integer [not null, ref: > comorbidade.id_comorbidade]
+  data_diagnostico date [null]
+  severidade severidade [null]
+  status varchar(30) [not null, default: 'ativa', note: 'ativa, controlada, em_remissao']
+  data_criacao timestamp [not null, default: `now()`]
+  data_atualizacao timestamp [not null, default: `now()`]
+  data_exclusao timestamp [null]
+
+  indexes {
+    (id_paciente, id_comorbidade) [pk]
+  }
+}
+
+Table paciente_vicio {
+  id_paciente integer [not null, ref: > paciente.id_paciente]
+  id_vicio integer [not null, ref: > vicio.id_vicio]
+  data_inicio date [null]
+  frequencia varchar(50) [null]
+  status varchar(30) [not null, default: 'ativo', note: 'ativo, em_tratamento, cessado']
+  data_criacao timestamp [not null, default: `now()`]
+  data_atualizacao timestamp [not null, default: `now()`]
+  data_exclusao timestamp [null]
+
+  indexes {
+    (id_paciente, id_vicio) [pk]
+  }
+}
+
+Table paciente_possui_alergia {
+  id_paciente integer [not null, ref: > paciente.id_paciente]
+  id_alergia integer [not null, ref: > alergia.id_alergia]
+  data_diagnostico date [null]
+  severidade_reacao severidade [null]
+  observacao_clinica text [null]
+  identificado_por_id_usuario integer [null, ref: > usuario.id_usuario]
+  data_criacao timestamp [not null, default: `now()`]
+  data_atualizacao timestamp [not null, default: `now()`]
+  data_exclusao timestamp [null]
+
+  indexes {
+    (id_paciente, id_alergia) [pk]
+  }
+
+  Note: 'Tabela associativa restaurada — sem ela, RF-010 (alertas preditivos) é inviável.'
+}
+
+Table paciente_utiliza_medicamento {
+  id_paciente_utiliza integer [pk, increment]
+  id_paciente integer [not null, ref: > paciente.id_paciente]
+  id_medicamento integer [not null, ref: > medicamento.id_medicamento]
+  dosagem varchar(50) [not null]
+  frequencia_uso varchar(100) [not null]
+  via_administracao varchar(50) [null]
+  data_inicio_uso date [not null]
+  data_fim_uso date [null, note: 'Nulo enquanto medicamento estiver em uso']
+  prescrito_por_id_medico integer [null, ref: > medico.id_medico]
+  motivo_prescricao text [null]
+  status varchar(30) [not null, default: 'ativo', note: 'ativo, suspenso, finalizado']
+  client_operation_id varchar(50) [null, unique, note: 'Idempotency key para sincronização offline (RF-019)']
+  data_criacao timestamp [not null, default: `now()`]
+  data_atualizacao timestamp [not null, default: `now()`]
+  data_exclusao timestamp [null]
+
+  indexes {
+    (id_paciente, status)
+    id_medicamento
+  }
+
+  Note: 'Substitui o vínculo simples N:N com atributos. PK surrogate permite múltiplas prescrições do mesmo medicamento ao longo do tempo.'
+}
+
+// =============================================================================
+// PARTE 4 — ATENDIMENTO
+// =============================================================================
+
+Table consulta {
+  id_consulta integer [pk, increment]
+  id_paciente integer [not null, ref: > paciente.id_paciente]
+  id_medico integer [not null, ref: > medico.id_medico]
+  data_hora_inicio timestamp [not null]
+  data_hora_fim timestamp [null]
+  motivo_consulta text [not null, note: 'Queixa principal - alimenta o RF-020 (Resumo Inteligente)']
+  diagnostico text [null]
+  observacoes text [null]
+  status status_consulta [not null, default: 'agendada']
+  tipo_consulta tipo_consulta [not null]
+  data_criacao timestamp [not null, default: `now()`]
+  data_atualizacao timestamp [not null, default: `now()`]
+  data_exclusao timestamp [null]
+  status_ativo boolean [not null, default: true]
+
+  indexes {
+    (id_paciente, data_hora_inicio)
+    (id_medico, data_hora_inicio)
+    status
+  }
+}
+
+Table documento {
+  id_documento integer [pk, increment]
+  id_paciente integer [not null, ref: > paciente.id_paciente, note: 'FK direta - paciente pode subir docs sem consulta vinculada']
+  id_consulta integer [null, ref: > consulta.id_consulta, note: 'Opcional - obrigatório quando upload feito por médico (RN-013)']
+  tipo_documento varchar(50) [not null, note: 'exame, laudo, receita, atestado, vacina']
+  nome varchar(150) [not null]
+  data_documento date [null, note: 'Data do documento em si (não do upload)']
+  url_storage varchar(500) [not null, note: 'URL no Object Storage (S3/MinIO)']
+  hash_arquivo varchar(64) [not null, note: 'SHA-256 para integridade']
+  tamanho_bytes bigint [not null]
+  mime_type varchar(100) [not null]
+  origem_upload varchar(30) [not null, note: 'paciente, medico, integracao_sus, integracao_lab']
+  upload_por_id_usuario integer [not null, ref: > usuario.id_usuario]
+  client_operation_id varchar(50) [null, unique, note: 'Idempotency key (RF-019)']
+  data_upload timestamp [not null, default: `now()`]
+  data_atualizacao timestamp [not null, default: `now()`]
+  data_exclusao timestamp [null]
+  status_ativo boolean [not null, default: true]
+
+  indexes {
+    id_paciente
+    id_consulta
+    tipo_documento
+    data_upload
+  }
+}
+
+Table historico {
+  id_historico integer [pk, increment]
+  id_paciente integer [not null, ref: > paciente.id_paciente]
+  id_consulta integer [null, ref: > consulta.id_consulta, note: 'Quando o evento foi originado em uma consulta']
+  tipo_evento tipo_evento_historico [not null]
+  descricao text [not null]
+  instituicao_origem varchar(150) [null]
+  data_evento timestamp [not null, note: 'Quando o evento clínico ocorreu']
+  data_registro timestamp [not null, default: `now()`, note: 'Quando foi registrado no sistema']
+  alterado_por_id_usuario integer [null, ref: > usuario.id_usuario, note: 'FK para Usuário (corrigido) - quem registrou/alterou']
+  motivo_alteracao text [null]
+  data_atualizacao timestamp [not null, default: `now()`]
+  data_exclusao timestamp [null]
+
+  indexes {
+    (id_paciente, data_evento)
+    tipo_evento
+    id_consulta
+  }
+
+  Note: 'Imutável após confirmação (RN-012). Alterações geram adendos via LOG_AUDITORIA, sem sobrescrever.'
+}
+
+// =============================================================================
+// PARTE 5 — PERMISSÕES E TERMOS
+// =============================================================================
+
+Table permissao_acesso {
+  id_permissao integer [pk, increment]
+  id_paciente integer [not null, ref: > paciente.id_paciente, note: 'Quem concede']
+  id_medico integer [not null, ref: > medico.id_medico, note: 'Quem recebe a permissão']
+  data_concessao timestamp [not null, default: `now()`]
+  data_revogacao timestamp [null, note: 'Nulo enquanto ativa - duração indefinida (RN-014 atualizada)']
+  metodo_concessao metodo_concessao [not null]
+  status status_permissao [not null, default: 'ativa']
+  token_hash varchar(255) [null, note: 'Hash do token de acesso quando aplicável']
+
+  indexes {
+    (id_paciente, status)
+    (id_medico, status)
+    data_concessao
+  }
+
+  Note: 'Substituiu MEDICO_VISUALIZA_PACIENTE. Suporta a RN-014 atualizada (duração indefinida com revogação pelo paciente).'
+}
+
+Table permissao_categoria {
+  id_permissao integer [not null, ref: > permissao_acesso.id_permissao]
+  id_categoria integer [not null, ref: > categoria_dado.id_categoria]
+
+  indexes {
+    (id_permissao, id_categoria) [pk]
+  }
+
+  Note: 'Define exatamente quais categorias de dados foram liberadas em cada permissão. Mitiga o risco de omissão por desconfiança identificado pelo Dr. Yan.'
+}
+
+Table termo_aceite {
+  id_aceite integer [pk, increment]
+  id_usuario integer [not null, ref: > usuario.id_usuario, note: 'Geralmente médico, mas pode ser qualquer perfil']
+  versao_termo varchar(20) [not null, note: 'Ex: 1.0.0, 1.1.0']
+  texto_termo text [not null, note: 'Snapshot do texto na hora do aceite']
+  data_aceite timestamp [not null, default: `now()`]
+  ip_aceite varchar(45) [not null, note: 'Suporta IPv4 e IPv6']
+
+  indexes {
+    (id_usuario, versao_termo) [unique]
+  }
+
+  Note: 'Suporta o RF-021 (Termo de Uso e Escopo da Revisão para Profissionais). Vinculado ao log de auditoria como prova de diligência.'
+}
+
+// =============================================================================
+// PARTE 6 — AUDITORIA E IA
+// =============================================================================
+
+Table log_auditoria {
+  id_log bigint [pk, increment]
+  id_usuario integer [not null, ref: > usuario.id_usuario, note: 'Quem realizou a operação']
+  timestamp timestamp [not null, default: `now()`]
+  operacao operacao_log [not null]
+  entidade_afetada varchar(100) [not null, note: 'Nome da tabela alvo']
+  id_registro_afetado varchar(50) [not null, note: 'ID do registro alvo (varchar para suportar PKs compostas)']
+  valor_anterior text [null, note: 'JSON com snapshot anterior, null em CREATE']
+  valor_posterior text [null, note: 'JSON com snapshot novo, null em DELETE']
+  ip_origem varchar(45) [not null]
+  user_agent varchar(255) [null]
+
+  indexes {
+    timestamp
+    (entidade_afetada, id_registro_afetado)
+    id_usuario
+  }
+
+  Note: 'Append-only. Retenção 5 anos (RNF-017). Log nunca deve ser editado ou apagado por nenhum perfil.'
+}
+
+Table log_inferencia_ia {
+  id_inferencia bigint [pk, increment]
+  id_paciente integer [not null, ref: > paciente.id_paciente, note: 'Sobre quem é a inferência']
+  solicitado_por_id_usuario integer [not null, ref: > usuario.id_usuario, note: 'Quem disparou a chamada']
+  timestamp timestamp [not null, default: `now()`]
+  modelo_utilizado varchar(100) [not null, note: 'Ex: gpt-4o, claude-sonnet-4']
+  provedor varchar(50) [not null, note: 'openai, anthropic, google, etc.']
+  tipo_inferencia tipo_inferencia_ia [not null]
+  input_hash varchar(64) [not null, note: 'SHA-256 do prompt - preserva privacidade']
+  output_texto text [not null]
+  tokens_consumidos integer [not null]
+  custo_estimado decimal(10,4) [null]
+  tempo_resposta_ms integer [not null]
+
+  indexes {
+    timestamp
+    (id_paciente, tipo_inferencia)
+    solicitado_por_id_usuario
+  }
+
+  Note: 'Retenção 180 dias (RNF-017). Suporta direito à revisão de decisões automatizadas (LGPD Art. 20) e auditoria de custos.'
+}
+
+// =============================================================================
+// AGRUPAMENTOS VISUAIS (TableGroups) — facilita leitura no dbdiagram.io
+// =============================================================================
+
+TableGroup identidade_acesso {
+  usuario
+  telefone
+  endereco
+  paciente
+  medico
+  especialidade
+  medico_especialidade
+  paciente_tutela
+}
+
+TableGroup catalogos_clinicos {
+  comorbidade
+  vicio
+  substancia
+  medicamento
+  medicamento_substancia
+  alergia
+  categoria_dado
+}
+
+TableGroup vinculos_paciente {
+  paciente_comorbidade
+  paciente_vicio
+  paciente_possui_alergia
+  paciente_utiliza_medicamento
+}
+
+TableGroup atendimento {
+  consulta
+  documento
+  historico
+}
+
+TableGroup permissoes {
+  permissao_acesso
+  permissao_categoria
+  termo_aceite
+}
+
+TableGroup auditoria_ia {
+  log_auditoria
+  log_inferencia_ia
+}

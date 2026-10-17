@@ -1,0 +1,13 @@
+{
+  "name": "exp-01-postgres-mongo",
+  "version": "1.0.0",
+  "description": "MedFlow - EXP-01: PostgreSQL + MongoDB",
+  "main": "junta-paciente-documentos.js",
+  "scripts": {
+    "start": "node junta-paciente-documentos.js"
+  },
+  "dependencies": {
+    "mongodb": "^6.9.0",
+    "pg": "^8.13.0"
+  }
+}
