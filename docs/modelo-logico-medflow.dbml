@@ -55,7 +55,6 @@ Enum tipo_relacao_tutela {
 Enum status_permissao {
   ativa
   revogada
-  expirada
 }
 
 Enum metodo_concessao {

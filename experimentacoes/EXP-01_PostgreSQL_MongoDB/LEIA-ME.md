@@ -32,11 +32,22 @@ pela aplicação (RF-004).
   documento "órfão").
   Depois: docker start medflow-exp01-mongo
 
-## Evidências para a 19.2
-- Print da saída do T1 (psql + npm start)
-- Print do mongosh ou MongoDB Compass mostrando os 2 documentos
-- Trecho de código: a função main() de junta-paciente-documentos.js
-- Commit no GitHub, link na Seção 4
+## Evidências (Seção 19.2 da documentação)
+Pasta `PRINTS/`:
+- `print_docker_compose_ps.png`: contêineres `medflow-exp01-pg` (postgres:16, porta 5433) e `medflow-exp01-mongo` (mongo:7, porta 27017) em execução (`docker compose ps`).
+- `print_saida_do_t1.png`: saída do T1 (paciente + 2 documentos).
+- `print_saida_T2.png`: saída do T2 (3º documento, receita, sem alterar tabela nem script).
+- `print_saida_t3.png`: saída do T3 (erro ECONNREFUSED com o Mongo parado).
+
+## Resultado resumido
+- T1: a junção feita na aplicação retornou o paciente (PostgreSQL) e seus 2 documentos (MongoDB).
+- T2: o documento de receita, com campos próprios, foi aceito sem mudar tabela nem código.
+- T3: sem o Mongo, o script falha com erro de conexão; não há transação entre os dois bancos.
+
+## Observações
+- O `documentos_exp01.json` usa uma estrutura aninhada (`referencias_relacionais`, `classificacao`, `arquivo_fisico`, `metadados_especificos`, `dados_extraidos_ia`, `auditoria`). Ela é uma variação experimental; o formato definitivo da coleção será consolidado no backend (ver `docs/arquitetura-persistencia-poliglota.md`).
+- O MinIO não faz parte deste experimento (apenas PostgreSQL e MongoDB). O teste de armazenamento de arquivos fica para a próxima etapa.
+- As portas 5433 e 27017 são publicadas só na máquina local, para testes.
 
 ## Reset completo
 docker compose down -v

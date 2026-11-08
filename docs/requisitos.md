@@ -8,14 +8,14 @@ Prioridade no modelo MoSCoW: **MUST** (obrigatório) · **SHOULD** (importante) 
 |---|---|---|---|
 | RF-001 | Cadastro de Usuários (pacientes, médicos, gestores) | MUST | Não Iniciado |
 | RF-002 | Consulta de Histórico completo do paciente | MUST | Não Iniciado |
-| RF-003 | Gestão de Permissões de Acesso (aprovação / QR Code) | MUST | Não Iniciado |
-| RF-004 | Upload e Leitura Inteligente de Exames (OCR) | MUST | Não Iniciado |
+| RF-003 | Gestão de Permissões de Acesso (aprovação / QR Code; permissão ativa até o paciente revogar) | MUST | Não Iniciado |
+| RF-004 | Upload e Leitura Inteligente de Exames (OCR) | MUST | Em Validação (EXP-01) |
 | RF-005 | Pesquisa de Pacientes (nome, CPF, etc.) | SHOULD | Não Iniciado |
 | RF-006 | Perfil de Paciente | MUST | Não Iniciado |
 | RF-007 | Conta de Menores (vínculo com tutores) | MUST | Não Iniciado |
 | RF-008 | Tradução e Interpretação de Laudos (IA) | SHOULD | Não Iniciado |
 | RF-009 | Notificações Empáticas Push | SHOULD | Não Iniciado |
-| RF-010 | Alertas de Cuidado Preditivo (conflito alergia × medicamento) | SHOULD | Não Iniciado |
+| RF-010 | Alertas de Cuidado Preditivo (conflito alergia × medicamento) | SHOULD | Em Validação (EXP-02 e EXP-04) |
 | RF-011 | Gestão de Contas Vinculadas (tutores) | COULD | Não Iniciado |
 | RF-012 | Exportação de Dossiê Médico (PDF) | COULD | Não Iniciado |
 | RF-013 | Registro de Histórico Clínico | MUST | Não Iniciado |
@@ -44,11 +44,15 @@ Prioridade no modelo MoSCoW: **MUST** (obrigatório) · **SHOULD** (importante) 
 | RNF-009 | Tempo de resposta da IA ≤ 3s | SHOULD | Não Iniciado |
 | RNF-010 | Interoperabilidade — padrão FHIR (JSON/XML) | COULD | Em progresso |
 | RNF-011 | Auditabilidade e rastreabilidade imutável | MUST | Não Iniciado |
-| RNF-012 | Autenticação multifator (MFA) e controle de sessão | MUST | Não Iniciado |
+| RNF-012 | Autenticação multifator (MFA) e controle de sessão (permissões por QR Code ativas até a revogação) | MUST | Não Iniciado |
 | RNF-013 | Privacidade por design | MUST | Não Iniciado |
 | RNF-014 | Compatibilidade com dispositivos de entrada (Android 10+/iOS 14+) | SHOULD | Não Iniciado |
 | RNF-015 | Modo offline parcial (perfil Paciente) | COULD | Não Iniciado |
 | RNF-016 | Disponibilidade e governança do serviço de IA (SLA 99,5%) | MUST | Não Iniciado |
 | RNF-017 | Política de retenção e exclusão de dados (20 anos prontuário) | MUST | Não Iniciado |
+
+> **Validação parcial:** RF-004 foi relacionado à EXP-01 (consulta combinada PostgreSQL + MongoDB, sem validar upload e leitura inteligente de exames). RF-010 foi relacionado à EXP-02 (conflito alergia × medicamento no PostgreSQL via tabela `substancia`) e à EXP-04 (três testes unitários com Jest). Não foram testadas comorbidades, interações medicamentosas nem integração com os demais módulos.
+>
+> **Permissões (RN-014):** a permissão concedida pelo paciente tem duração indefinida e só deixa de valer quando ele a revoga; não há expiração automática.
 
 > Detalhamento completo de cada requisito está no documento de especificação da Fase 1 (`Entregas/Quarto Periodo/Fase 1/MedFlow_Requisitos.docx`), fora deste repositório.

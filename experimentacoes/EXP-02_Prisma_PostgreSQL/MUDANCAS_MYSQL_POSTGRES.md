@@ -18,11 +18,10 @@
 por SQL puro não atualiza `data_atualizacao`. Se isso importar (RNF-006/RNF-011),
 é preciso um trigger no PostgreSQL.
 
-## Outras inconsistências achadas no sql.txt
-1. A tabela `documento` não existe no sql.txt (26 tabelas sem ela), mas a Seção 18.3
-   a descreve como tabela-ponte para o MongoDB, e a lista de domínios da 18.1 soma 27.
-2. `log_auditoria.operacao` não tem valor de LEITURA, mas o RF-018 exige registrar leituras.
-3. `log_inferencia_ia.tipo_inferencia` tem `DIAGNOSTICO`, que conflita com a RN-009
-   (a IA é proibida de emitir diagnósticos).
-4. `permissao_acesso.status` tem `EXPIRADO`, mas a RN-014 atual diz que a permissão
-   tem duração indefinida.
+## Inconsistências do sql.txt e decisões (Fase 3)
+1. A tabela `documento` não existe no sql.txt (26 tabelas sem ela). Decisão: manter as 26 tabelas do DDL;
+   `documento` fica descrita na Seção 18.3 como tabela-ponte prevista.
+2. `log_auditoria.operacao` não tinha LEITURA, mas o RF-018 exige registrar leituras. Corrigido: valor `LEITURA` incluído.
+3. `log_inferencia_ia.tipo_inferencia` tinha `DIAGNOSTICO`, que conflita com a RN-009. Corrigido: valor removido.
+4. `permissao_acesso.status` tinha `EXPIRADO`, mas a RN-014 define duração indefinida (só termina por revogação do
+   paciente). Corrigido: valor removido; restam `ATIVO` e `REVOGADO`.

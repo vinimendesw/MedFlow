@@ -1,4 +1,11 @@
 -- ==============================================================================
+-- MedFlow - schema de referência (26 tabelas, 15 tipos ENUM). Ainda em sintaxe MySQL;
+-- a versão PostgreSQL/Prisma está em experimentacoes/EXP-02_Prisma_PostgreSQL.
+-- Ajustes da Fase 3: permissao_acesso.status = ('ATIVO','REVOGADO') (RN-014);
+-- log_auditoria.operacao inclui 'LEITURA' (RF-018); log_inferencia_ia.tipo_inferencia
+-- sem 'DIAGNOSTICO' (RN-009). A tabela 'documento' (ponte p/ MongoDB) não faz parte deste DDL.
+-- ==============================================================================
+-- ==============================================================================
 -- 1. TABELAS BASE (Sem dependências de chaves estrangeiras)
 -- ==============================================================================
 
@@ -157,7 +164,7 @@ CREATE TABLE permissao_acesso (
     data_concessao TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     data_revogacao TIMESTAMP NULL,
     metodo_concessao ENUM('MANUAL', 'SISTEMA', 'QR_CODE') NOT NULL,
-    status ENUM('ATIVO', 'REVOGADO', 'EXPIRADO') NOT NULL,
+    status ENUM('ATIVO', 'REVOGADO') NOT NULL,
     token_hash VARCHAR(255),
     FOREIGN KEY (id_paciente) REFERENCES paciente(id_paciente) ON DELETE CASCADE,
     FOREIGN KEY (id_medico) REFERENCES medico(id_medico) ON DELETE CASCADE
@@ -299,7 +306,7 @@ CREATE TABLE log_auditoria (
     id_log BIGINT AUTO_INCREMENT PRIMARY KEY,
     id_usuario INT NOT NULL,
     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    operacao ENUM('INSERT', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT') NOT NULL,
+    operacao ENUM('INSERT', 'UPDATE', 'DELETE', 'LEITURA', 'LOGIN', 'LOGOUT') NOT NULL,
     entidade_afetada VARCHAR(100) NOT NULL,
     id_registro_afetado VARCHAR(50) NOT NULL,
     valor_anterior TEXT,
@@ -316,7 +323,7 @@ CREATE TABLE log_inferencia_ia (
     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     modelo_utilizado VARCHAR(100) NOT NULL,
     provedor VARCHAR(50) NOT NULL,
-    tipo_inferencia ENUM('DIAGNOSTICO', 'RESUMO_PRONTUARIO', 'ANALISE_EXAME') NOT NULL,
+    tipo_inferencia ENUM('RESUMO_PRONTUARIO', 'ANALISE_EXAME') NOT NULL,
     input_hash VARCHAR(64) NOT NULL,
     output_texto TEXT NOT NULL,
     tokens_consumidos INT NOT NULL,

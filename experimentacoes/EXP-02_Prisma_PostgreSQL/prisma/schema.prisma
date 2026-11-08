@@ -68,7 +68,6 @@ enum MetodoConcessao {
 enum StatusPermissao {
   ATIVO
   REVOGADO
-  EXPIRADO
 
   @@map("status_permissao")
 }
@@ -128,6 +127,7 @@ enum Operacao {
   INSERT
   UPDATE
   DELETE
+  LEITURA
   LOGIN
   LOGOUT
 
@@ -135,7 +135,6 @@ enum Operacao {
 }
 
 enum TipoInferencia {
-  DIAGNOSTICO
   RESUMO_PRONTUARIO
   ANALISE_EXAME
 

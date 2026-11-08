@@ -75,14 +75,23 @@ Medflow/
     └── EXP-04_Jest_Alergia/           → testes automatizados da regra de alergia
 ```
 
-Cada pasta de `experimentacoes/` tem seu próprio `LEIA-ME.md` com passo a passo para rodar o experimento.
+Cada pasta de `experimentacoes/` tem seu próprio `LEIA-ME.md` com passo a passo para rodar o experimento e a pasta `PRINTS/` com as evidências.
+
+### Resultados das experimentações
+
+| Experimento | Resultado | Limitações |
+|---|---|---|
+| EXP-01 | Junção paciente (PostgreSQL) + documentos (MongoDB) na aplicação; documento com campos novos sem alterar tabela; falha de conexão sem transação entre os bancos | Sem MinIO; não valida upload nem leitura inteligente de exames |
+| EXP-02 | 26 tabelas e 15 enums em PostgreSQL com Prisma; `UNIQUE(crm, uf_crm)`; conflito alergia × medicamento, inclusive composto | Node puro (sem NestJS); `@updatedAt` só na aplicação; sem teste de comorbidades e desempenho |
+| EXP-03 | Protótipo da tela de login | Apenas protótipo |
+| EXP-04 | 3 testes Jest aprovados na regra simples de alergia | Dados simulados, comparação literal |
 
 ## 📚 Documentação
 
 - [`docs/requisitos.md`](docs/requisitos.md) — 22 requisitos funcionais e 17 não funcionais, com prioridade e status
 - [`docs/modelo-logico-medflow.png`](docs/modelo-logico-medflow.png) — diagrama do modelo lógico (26 tabelas)
 - [`docs/modelo-logico-medflow.dbml`](docs/modelo-logico-medflow.dbml) — mesmo modelo em formato [dbdiagram.io](https://dbdiagram.io)
-- [`docs/schema-postgresql-referencia.sql`](docs/schema-postgresql-referencia.sql) — schema original (nota: ainda em sintaxe MySQL; a versão corrigida para PostgreSQL está em `experimentacoes/EXP-01` e `EXP-02`)
+- [`docs/schema-postgresql-referencia.sql`](docs/schema-postgresql-referencia.sql) — schema original (26 tabelas e 15 enums; ainda em sintaxe MySQL, a versão PostgreSQL/Prisma está em `experimentacoes/EXP-02`)
 - [`docs/solucao-tecnologica.md`](docs/solucao-tecnologica.md) — justificativa de cada escolha tecnológica
 - [`docs/arquitetura-persistencia-poliglota.md`](docs/arquitetura-persistencia-poliglota.md) — como PostgreSQL e MongoDB se integram no backend
 
